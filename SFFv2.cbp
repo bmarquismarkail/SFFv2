@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="SFFv2" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="x86-Deb">
+				<Option output="bin/Debug/x86/SFFv2" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Debug/32" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-m32" />
+				</Compiler>
+			</Target>
+			<Target title="x86-Rel">
+				<Option output="bin/Release/x86/SFFv2" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Release/32" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option projectLibDirsRelation="-1" />
+				<Compiler>
+					<Add option="-m32" />
+				</Compiler>
+				<MakeCommands>
+					<Build command="" />
+					<CompileFile command="" />
+					<Clean command="" />
+					<DistClean command="" />
+					<AskRebuildNeeded command="" />
+					<SilentBuild command=" &gt; $(CMD_NULL)" />
+				</MakeCommands>
+			</Target>
+			<Target title="x64-Deb">
+				<Option output="bin/Debug/x64/SFFv2" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Debug/64" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-m64" />
+				</Compiler>
+			</Target>
+			<Target title="x64-Rel">
+				<Option output="bin/Release/x64/SFFv2" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Release/64" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option projectLibDirsRelation="-1" />
+				<Compiler>
+					<Add option="-m64" />
+				</Compiler>
+				<MakeCommands>
+					<Build command="" />
+					<CompileFile command="" />
+					<Clean command="" />
+					<DistClean command="" />
+					<AskRebuildNeeded command="" />
+					<SilentBuild command=" &gt; $(CMD_NULL)" />
+				</MakeCommands>
+			</Target>
+		</Build>
+		<VirtualTargets>
+			<Add alias="All-32" targets="x86-Deb;x86-Rel;" />
+			<Add alias="All-64" targets="x64-Deb;x64-Rel;" />
+			<Add alias="All-Build" targets="x86-Deb;x86-Rel;x64-Deb;x64-Rel;" />
+			<Add alias="All-Debug" targets="x86-Deb;x64-Deb;" />
+			<Add alias="All-Release" targets="x86-Rel;x64-Rel;" />
+		</VirtualTargets>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-std=c++11" />
+			<Add directory="src" />
+			<Add directory="src/utiltype" />
+		</Compiler>
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2File.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2File.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_PalNode.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_PalNode.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_SpriteNode.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_SpriteNode.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/LZ.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/LZ.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/RLE.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/RLE.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE5.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE5.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE8.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE8.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2header.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2header.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2test.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/SFF2MemBlock.cpp" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/SFF2MemBlock.h" />
+		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/sff2int.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
