@@ -80,28 +80,28 @@
 			<Add directory="src" />
 			<Add directory="src/utiltype" />
 		</Compiler>
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2File.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2File.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_PalNode.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_PalNode.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_SpriteNode.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/SFF2_SpriteNode.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/LZ.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/LZ.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/RLE.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/LZ5/RLE.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE5.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE5.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE8.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/encoding/RLE8.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2header.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2header.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/sff2test.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/SFF2MemBlock.cpp" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/SFF2MemBlock.h" />
-		<Unit filename="~svn/branches/x86_64-w64-mingw32-Codeblocks/utiltype/sff2int.h" />
+		<Unit filename="SFF2File.cpp" />
+		<Unit filename="SFF2File.h" />
+		<Unit filename="SFF2_PalNode.cpp" />
+		<Unit filename="SFF2_PalNode.h" />
+		<Unit filename="SFF2_SpriteNode.cpp" />
+		<Unit filename="SFF2_SpriteNode.h" />
+		<Unit filename="encoding/LZ5.cpp" />
+		<Unit filename="encoding/LZ5.h" />
+		<Unit filename="encoding/LZ5/LZ.cpp" />
+		<Unit filename="encoding/LZ5/LZ.h" />
+		<Unit filename="encoding/LZ5/RLE.cpp" />
+		<Unit filename="encoding/LZ5/RLE.h" />
+		<Unit filename="encoding/RLE5.cpp" />
+		<Unit filename="encoding/RLE5.h" />
+		<Unit filename="encoding/RLE8.cpp" />
+		<Unit filename="encoding/RLE8.h" />
+		<Unit filename="sff2header.cpp" />
+		<Unit filename="sff2header.h" />
+		<Unit filename="sff2test.cpp" />
+		<Unit filename="utiltype/SFF2MemBlock.cpp" />
+		<Unit filename="utiltype/SFF2MemBlock.h" />
+		<Unit filename="utiltype/sff2int.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />
