@@ -1,7 +1,7 @@
 #ifndef LZ5LZ
 #define LZ5LZ
 
-#include "..\..\utiltype\sff2int.h"
+#include "../../utiltype/sff2int.h"
 
 SFF32_u ProcessLZ(SFF8_u* dst, const SFF8_u* src, SFF32_u &dstpos, SFF32_u &srcpos, SFF8_u &recyclebyte, SFF8_u &recyclecount);
 
