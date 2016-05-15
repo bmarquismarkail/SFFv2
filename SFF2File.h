@@ -2,6 +2,7 @@
 #define SFF2FILE_H
 
 #include <fstream>
+#include <cstdlib>
 
 #include "sff2header.h"
 #include "SFF2_SpriteNode.h"

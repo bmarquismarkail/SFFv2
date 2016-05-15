@@ -1,4 +1,4 @@
-#include "..\LZ5.h"
+#include "../LZ5.h"
 #include "LZ.h"
 
 

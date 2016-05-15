@@ -1,6 +1,5 @@
-
-
 #include "SFF2File.h"
+
 
 SFF2File::SFF2File()
 {

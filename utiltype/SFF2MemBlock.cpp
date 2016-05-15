@@ -4,9 +4,9 @@
 #include <iostream>
 
 
-#include "..\encoding/LZ5.h"
-#include "..\encoding/RLE5.h"
-#include "..\encoding/RLE8.h"
+#include "../encoding/LZ5.h"
+#include "../encoding/RLE5.h"
+#include "../encoding/RLE8.h"
 
 
 SFF2MemBlock::SFF2MemBlock()
