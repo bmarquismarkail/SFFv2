@@ -4,6 +4,7 @@
 #include <fstream>
 
 #include "utiltype/sff2int.h"
+#include "sff2_streaminterface.hpp"
 
 class SFF2_Header
 {
@@ -33,7 +34,7 @@ class SFF2_Header
     char unused[436];
 public:
     SFF2_Header();
-    SFF2_Header(std::ifstream *in);
+    SFF2_Header(SFF2_StreamInterface*);
     ~SFF2_Header();
     char *getSignature()        {return Signature;};
     //bool setSignature();

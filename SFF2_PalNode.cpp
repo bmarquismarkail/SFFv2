@@ -10,19 +10,19 @@ SFF2_PalNode::SFF2_PalNode()
     DataLen = 0;    //The sprite data length. if the sprite is linked, this will be zero.
 }
 
-SFF2_PalNode::SFF2_PalNode(std::ifstream *in)
+SFF2_PalNode::SFF2_PalNode(SFF2_StreamInterface*in)
 {
     ReadFromDisk(in);
 }
 
-void SFF2_PalNode::ReadFromDisk(std::ifstream *in)
+void SFF2_PalNode::ReadFromDisk(SFF2_StreamInterface *in)
 {
-    in->read((char*) &GroupNo, sizeof(GroupNo));
-    in->read((char*) &PalNo, sizeof(PalNo));
-    in->read((char*) &NumCols, sizeof(NumCols));
-    in->read((char*) &LnkInd, sizeof(LnkInd));
-    in->read((char*) &DataOfs, sizeof(DataOfs));
-    in->read((char*) &DataLen, sizeof(DataLen));
+    in->ReadU16(GroupNo);
+    in->ReadU16(PalNo);
+    in->ReadU16(NumCols);
+    in->ReadU16(LnkInd);
+    in->ReadU32(DataOfs);
+    in->ReadU32(DataLen);
 }
 SFF2_PalNode::~SFF2_PalNode()
 {

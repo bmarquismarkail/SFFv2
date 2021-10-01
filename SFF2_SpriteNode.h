@@ -4,13 +4,14 @@
 #include <fstream>
 
 #include "utiltype/sff2int.h"
+#include "sff2_streaminterface.hpp"
 
 class SFF2_SpriteNode
 {
     public:
         SFF2_SpriteNode();
-        SFF2_SpriteNode(std::ifstream *in);
-        void ReadFromDisk(std::ifstream *in);
+        SFF2_SpriteNode(SFF2_StreamInterface*in);
+        void ReadFromDisk(SFF2_StreamInterface *in);
         ~SFF2_SpriteNode();
         SFF16_u GetGroupNo()        { return GroupNo; }
         SFF16_u GetSprNo()          { return SprNo; }

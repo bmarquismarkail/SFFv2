@@ -18,7 +18,7 @@ SFF2MemBlock::SFF2MemBlock()
     //ctor
 }
 
-SFF2MemBlock::SFF2MemBlock(std::ifstream *in, SFF32_u Ofs, SFF32_u Len)
+SFF2MemBlock::SFF2MemBlock(SFF2_StreamInterface *in, SFF32_u Ofs, SFF32_u Len)
 {
     ReadDataFromDisk(in,Ofs,Len);
 }
@@ -32,16 +32,16 @@ SFF2MemBlock::~SFF2MemBlock()
     }
 }
 
-void SFF2MemBlock::ReadDataFromDisk(std::ifstream *in, SFF32_u Ofs, SFF32_u Len)
+void SFF2MemBlock::ReadDataFromDisk(SFF2_StreamInterface *in, SFF32_u Ofs, SFF32_u Len)
 {
     Offset = Ofs;
     Length = Len;
-    in->seekg(Offset);
+    in->Seek(Offset);
     Data = new SFF8_u[Len];
-    in->read((char*)Data, Len);
+    in->Read((char*)Data, Len);
 }
 
-void SFF2MemBlock::TranslateDataFromDisk(std::ifstream *in, SFF32_u Ofs, SFF32_u SrcLen, SFF32_u DstLen, SFF16_u Fmt)
+void SFF2MemBlock::TranslateDataFromDisk(SFF2_StreamInterface *in, SFF32_u Ofs, SFF32_u SrcLen, SFF32_u DstLen, SFF16_u Fmt)
 {
     if (!SrcLen)
         return;

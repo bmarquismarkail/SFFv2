@@ -34,26 +34,40 @@ SFF2_SpriteNode::SFF2_SpriteNode()
     Flags = 0;
 }
 
-SFF2_SpriteNode::SFF2_SpriteNode(std::ifstream *in)
+SFF2_SpriteNode::SFF2_SpriteNode(SFF2_StreamInterface *in)
 {
     ReadFromDisk(in);
 }
 
-void SFF2_SpriteNode::ReadFromDisk(std::ifstream *in)
+void SFF2_SpriteNode::ReadFromDisk(SFF2_StreamInterface *in)
 {
-    in->read((char*) &GroupNo, sizeof(GroupNo));
-    in->read((char*) &SprNo, sizeof(SprNo));
-    in->read((char*) &Width, sizeof(Width));
-    in->read((char*) &Height, sizeof(Height));
-    in->read((char*) &Xaxis, sizeof(Xaxis));
-    in->read((char*) &Yaxis, sizeof(Yaxis));
-    in->read((char*) &LnkInd, sizeof(LnkInd));
-    in->read((char*) &Fmt, sizeof(Fmt));
-    in->read((char*) &Coldepth, sizeof(Coldepth));
-    in->read((char*) &DataOfs, sizeof(DataOfs));
-    in->read((char*) &DataLen, sizeof(DataLen));
-    in->read((char*) &PalInd, sizeof(PalInd));
-    in->read((char*) &Flags, sizeof(Flags));
+//    in->read((char*) &GroupNo, sizeof(GroupNo));
+//    in->read((char*) &SprNo, sizeof(SprNo));
+//    in->read((char*) &Width, sizeof(Width));
+//    in->read((char*) &Height, sizeof(Height));
+//    in->read((char*) &Xaxis, sizeof(Xaxis));
+//    in->read((char*) &Yaxis, sizeof(Yaxis));
+//    in->read((char*) &LnkInd, sizeof(LnkInd));
+//    in->read((char*) &Fmt, sizeof(Fmt));
+//    in->read((char*) &Coldepth, sizeof(Coldepth));
+//    in->read((char*) &DataOfs, sizeof(DataOfs));
+//    in->read((char*) &DataLen, sizeof(DataLen));
+//    in->read((char*) &PalInd, sizeof(PalInd));
+//    in->read((char*) &Flags, sizeof(Flags));
+
+    in->ReadU16(GroupNo);
+    in->ReadU16(SprNo);
+    in->ReadU16(Width);
+    in->ReadU16(Height);
+    in->ReadS16(Xaxis);
+    in->ReadS16(Yaxis);
+    in->ReadU16(LnkInd);
+    in->ReadU8(Fmt);
+    in->ReadU8(Coldepth);
+    in->ReadU32(DataOfs);
+    in->ReadU32(DataLen);
+    in->ReadU16(PalInd);
+    in->ReadU16(Flags);
 }
 
 SFF2_SpriteNode::~SFF2_SpriteNode()

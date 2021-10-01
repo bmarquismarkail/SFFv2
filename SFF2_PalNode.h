@@ -4,13 +4,14 @@
 #include <fstream>
 
 #include "utiltype/sff2int.h"
+#include "sff2_streaminterface.hpp"
 
 class SFF2_PalNode
 {
     public:
         SFF2_PalNode();
-        SFF2_PalNode(std::ifstream *in);
-        void ReadFromDisk(std::ifstream *in);
+        SFF2_PalNode(SFF2_StreamInterface *in);
+        void ReadFromDisk(SFF2_StreamInterface *in);
         ~SFF2_PalNode();
         SFF16_u GetGroupNo()    { return GroupNo; }
         SFF16_u GetPalNo()      { return PalNo; }
