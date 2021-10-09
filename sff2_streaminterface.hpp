@@ -7,16 +7,17 @@
 class SFF2_StreamInterface
 {
     public:
-        SFF2_StreamInterface(const char* filename);
+        SFF2_StreamInterface();
         virtual ~SFF2_StreamInterface();
-        virtual int ReadU8(SFF8_u&);
-        virtual int ReadU16(SFF16_u&);
-        virtual int ReadU32(SFF32_u&);
-        virtual int ReadS16(SFF16_s&);
-        virtual int Read(char*, size_t);
-        virtual int Seek(size_t);
-        virtual void Close();
-        virtual bool is_open();
+        virtual int Open(const char* filename)=0;
+        virtual int ReadU8(SFF8_u&)=0;
+        virtual int ReadU16(SFF16_u&)=0;
+        virtual int ReadU32(SFF32_u&)=0;
+        virtual int ReadS16(SFF16_s&)=0;
+        virtual int Read(char*, size_t)=0;
+        virtual int Seek(size_t)=0;
+        virtual void Close()=0;
+        virtual bool is_open()=0;
 
     protected:
 

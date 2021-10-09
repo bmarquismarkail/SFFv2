@@ -36,25 +36,25 @@ SFF2_Header::SFF2_Header( SFF2_StreamInterface *in)
     in->ReadU8(Verlo2);
     in->ReadU8(Verlo1);
     in->ReadU8(Verhi);
-//    in->read((char*) &Reserved1, sizeof(Reserved1));
-//    in->read((char*) &Reserved2, sizeof(Reserved2));
-//    in->read((char*) &Compatverlo3,sizeof(Compatverlo3));
-//    in->read((char*) &Compatverlo2,sizeof(Compatverlo2));
-//    in->read((char*) &Compatverlo1,sizeof(Compatverlo1));
-//    in->read((char*) &Compatverhi,sizeof(Compatverhi));
-//    in->read((char*) &Reserved3, sizeof (Reserved3));
-//    in->read((char*) &Reserved4, sizeof(Reserved4));
-//    in->read((char*) &SNde_Offs, sizeof(SNde_Offs));
-//    in->read((char*) &Num_Sprite, sizeof(Num_Sprite));
-//    in->read((char*) &PalNde_Offs, sizeof(PalNde_Offs));
-//    in->read((char*) &Num_Pal, sizeof(Num_Pal));
-//    in->read((char*) &Ldata_Ofs, sizeof(Ldata_Ofs));
-//    in->read((char*) &Ldata_Len, sizeof(Ldata_Len));
-//    in->read((char*) &Tdata_Ofs, sizeof(Tdata_Ofs));
-//    in->read((char*) &Tdata_Len, sizeof(Tdata_Len));
-//    in->read((char*) &Reserved5, sizeof(Reserved5));
-//    in->read((char*) &Reserved6, sizeof(Reserved6));
-//    in->read(unused, sizeof(unused));
+    in->ReadU32(Reserved1);
+    in->ReadU32(Reserved2);
+    in->ReadU8(Compatverlo3);
+    in->ReadU8(Compatverlo2);
+    in->ReadU8(Compatverlo1);
+    in->ReadU8(Compatverhi);
+    in->ReadU32(Reserved3);
+    in->ReadU32(Reserved4);
+    in->ReadU32(SNde_Offs);
+    in->ReadU32(Num_Sprite);
+    in->ReadU32(PalNde_Offs);
+    in->ReadU32(Num_Pal);
+    in->ReadU32(Ldata_Ofs);
+    in->ReadU32(Ldata_Len);
+    in->ReadU32(Tdata_Ofs);
+    in->ReadU32(Tdata_Len);
+    in->ReadU32(Reserved5);
+    in->ReadU32(Reserved6);
+    in->Read(unused, sizeof(unused));
 }
 
 SFF2_Header::~SFF2_Header()

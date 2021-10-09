@@ -9,16 +9,16 @@
 #include "SFF2_PalNode.h"
 #include "utiltype/SFF2MemBlock.h"
 
-#include "sff2_streaminterface.hpp"
+#include "/home/brandon/dev/src/lang/C/Libraries/SFF2/sff2_streaminterface.hpp"
 
 class SFF2File
 {
     public:
         SFF2File();
         SFF2File(SFF2_StreamInterface *in);
-        SFF2File(const char* Filename);
+        SFF2File(SFF2_StreamInterface *in, const char* Filename);
         ~SFF2File();
-        void Load_Sprite(SFF2_StreamInterface *in);
+        void Load_Sprite();
         SFF2_Header* GetHeader() { return Head; }
         SFF2_SpriteNode* GetSpriteNode(SFF32_u index);
         SFF32_u GetSpriteIndex(SFF16_u groupNo, SFF16_u SprNo);
@@ -27,6 +27,7 @@ class SFF2File
         SFF2MemBlock* GetSprData(SFF32_u index);
     protected:
     private:
+        SFF2_StreamInterface *interface;
         SFF2_Header* Head;
         std::vector<SFF2_SpriteNode> Sprite;
         std::vector<SFF2_PalNode> Pal;
