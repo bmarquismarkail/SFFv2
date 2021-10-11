@@ -4,12 +4,12 @@
 #include <fstream>
 #include <vector>
 
-#include "sff2header.h"
+#include "SFF2_Header.h"
+#include "SFF2_StreamInterface.h"
 #include "SFF2_SpriteNode.h"
 #include "SFF2_PalNode.h"
 #include "utiltype/SFF2MemBlock.h"
 
-#include "/home/brandon/dev/src/lang/C/Libraries/SFF2/sff2_streaminterface.hpp"
 
 class SFF2File
 {

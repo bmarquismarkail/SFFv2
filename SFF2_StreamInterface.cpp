@@ -1,4 +1,4 @@
-#include "sff2_streaminterface.hpp"
+#include "SFF2_StreamInterface.h"
 
 SFF2_StreamInterface::SFF2_StreamInterface()
 {

@@ -1,4 +1,4 @@
-#include "sff2header.h"
+#include "SFF2_Header.h"
 
 #include <cstring>
 #include <iostream>

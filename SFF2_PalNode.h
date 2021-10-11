@@ -4,7 +4,7 @@
 #include <fstream>
 
 #include "utiltype/sff2int.h"
-#include "sff2_streaminterface.hpp"
+#include "SFF2_StreamInterface.h"
 
 class SFF2_PalNode
 {
