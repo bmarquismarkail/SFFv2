@@ -5,26 +5,29 @@
 #include <fstream>
 
 SFF2_Header::SFF2_Header()
+    :   Signature("ElecbyteSpr"),
+        Verlo3(0), Verlo2(0), Verlo1(0),
+        Verhi(2),
+        Reserved1(0), Reserved2(0),
+        Compatverlo3(0), Compatverlo2(0), Compatverlo1(0),
+        Compatverhi(2),
+        Reserved3(0), Reserved4(0),
+        SNde_Offs(0),
+        Num_Sprite(0),
+        PalNde_Offs(0),
+        Num_Pal(0),
+        Ldata_Ofs(0),
+        Ldata_Len(0),
+        Tdata_Ofs(0),
+        Tdata_Len(0),
+        Reserved5(0), Reserved6(0),
+        unused()
 {
-    strncpy(Signature,"ElecbyteSpr",12);
-    Verlo3 = Verlo2 = Verlo1 = 0;
-    Verhi = 2;
-    Compatverlo3 = Compatverlo2 = Compatverlo1 = 0;
-    Compatverhi = 2;
-    SNde_Offs = 0;
-    Num_Sprite =0;
-    PalNde_Offs = 0;
-    Num_Pal = 0;
-    Ldata_Ofs = 0;
-    Ldata_Len = 0;
-    Tdata_Ofs = 0;
-    Tdata_Len = 0;
-    Reserved1 = Reserved2 = Reserved3 = Reserved4 = Reserved5 = Reserved6 = 0;
-    memset(unused,0,436);
+    //memset(unused,0,436);
 
 }
 
-SFF2_Header::SFF2_Header( SFF2_StreamInterface *in)
+SFF2_Header::SFF2_Header( SFF2_StreamInterface *in) : SFF2_Header()
 {
     in->Read(Signature, 12);
     if (strcmp(Signature, "ElecbyteSpr"))
