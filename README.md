@@ -14,7 +14,7 @@ left to an image library chosen by the application.
 ```sh
 cmake -S . -B build
 cmake --build build
-ctest --test-dir build
+(cd build && ctest)
 ```
 
 The public API is in `<sff2/sff2.h>`. The `sff2_example` program demonstrates
