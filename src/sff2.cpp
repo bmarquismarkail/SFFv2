@@ -806,7 +806,6 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
         !writeU32(*output, info_.tdata_offset) ||
         !writeU32(*output, info_.tdata_length))
         return fail("Could not finish SFF header");
-    loaded_ = true;
     return output->close() || fail("Could not close output stream");
 }
 

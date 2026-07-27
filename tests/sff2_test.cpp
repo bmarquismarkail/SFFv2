@@ -47,7 +47,9 @@ void testCreateAndRoundTrip() {
     second.height = 2;
     second.pixels = std::vector<uint8_t>{1, 2, 3, 0};
     assert(output.addSprite(second));
+    assert(!output.isOpen());
     assert(output.save(path));
+    assert(!output.isOpen());
 
     // Assert key offsets against the published SFFv2 header, independently of
     // the reader (signature, sprite table at byte 36, palette table at 44).
@@ -90,6 +92,7 @@ void testCreateAndRoundTrip() {
 
     const std::string copy = temporaryPath("sff2-roundtrip-copy-test.sff");
     assert(input.save(copy));
+    assert(input.isOpen());
     sff2::SFFFile reopened;
     assert(reopened.open(copy));
     sff2::Sprite* copied = reopened.findSprite(10, 5);
