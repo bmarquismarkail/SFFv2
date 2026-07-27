@@ -1,13 +1,24 @@
 #include <sff2/sff2.h>
 
-#include <cassert>
 #include <cstdio>
+#include <exception>
 #include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace {
+
+class CheckFailure : public std::exception {};
+
+void check(bool condition, const char* expression, const char* file, int line) {
+    if (condition) return;
+    std::fprintf(stderr, "%s:%d: check failed: %s\n", file, line, expression);
+    throw CheckFailure();
+}
+
+#define CHECK(expression) \
+    check(static_cast<bool>(expression), #expression, __FILE__, __LINE__)
 
 std::string temporaryPath(const char* name) {
     return std::string(name);
@@ -24,7 +35,7 @@ void testCreateAndRoundTrip() {
     palette.entries.push_back(sff2::PaletteEntry(255, 0, 0, 255));
     palette.entries.push_back(sff2::PaletteEntry(0, 255, 0, 255));
     palette.entries.push_back(sff2::PaletteEntry(0, 0, 255, 255));
-    assert(output.addPalette(palette));
+    CHECK(output.addPalette(palette));
 
     sff2::Sprite first;
     first.group = 0;
@@ -37,7 +48,7 @@ void testCreateAndRoundTrip() {
     first.palette_index = 0;
     first.pixels = std::vector<uint8_t>{0, 1, 1, 0, 2, 3, 3, 2};
     first.decoded = true;
-    assert(output.addSprite(first));
+    CHECK(output.addSprite(first));
 
     // Verify that multiple payload slots are independently written.
     sff2::Sprite second = first;
@@ -46,10 +57,10 @@ void testCreateAndRoundTrip() {
     second.width = 2;
     second.height = 2;
     second.pixels = std::vector<uint8_t>{1, 2, 3, 0};
-    assert(output.addSprite(second));
-    assert(!output.isOpen());
-    assert(output.save(path));
-    assert(!output.isOpen());
+    CHECK(output.addSprite(second));
+    CHECK(!output.isOpen());
+    CHECK(output.save(path));
+    CHECK(!output.isOpen());
 
     // Assert key offsets against the published SFFv2 header, independently of
     // the reader (signature, sprite table at byte 36, palette table at 44).
@@ -57,47 +68,47 @@ void testCreateAndRoundTrip() {
         std::ifstream binary(path.c_str(), std::ios::binary);
         std::vector<unsigned char> header(52);
         binary.read(reinterpret_cast<char*>(header.data()), header.size());
-        assert(binary.gcount() == static_cast<std::streamsize>(header.size()));
-        assert(std::string(reinterpret_cast<char*>(header.data()), 11) ==
+        CHECK(binary.gcount() == static_cast<std::streamsize>(header.size()));
+        CHECK(std::string(reinterpret_cast<char*>(header.data()), 11) ==
                "ElecbyteSpr");
-        assert(header[15] == 2);
-        assert(header[16] == 0 && header[20] == 0); // reserved words
-        assert(header[24] == 0 && header[25] == 0 &&
+        CHECK(header[15] == 2);
+        CHECK(header[16] == 0 && header[20] == 0); // reserved words
+        CHECK(header[24] == 0 && header[25] == 0 &&
                header[26] == 0 && header[27] == 2); // compatible 2.0.0.0
-        assert(header[36] == 0 && header[37] == 2); // 512, little endian
-        assert(header[44] == 56 && header[45] == 2); // 512 + 2 * 28
+        CHECK(header[36] == 0 && header[37] == 2); // 512, little endian
+        CHECK(header[44] == 56 && header[45] == 2); // 512 + 2 * 28
     }
 
     sff2::SFFFile input;
-    assert(input.open(path));
-    assert(input.isOpen());
-    assert(input.info().signature == "ElecbyteSpr");
-    assert(input.info().version == 0x02000100u);
-    assert(input.info().compatible_version == 0x02000000u);
-    assert(input.sprites().size() == 2);
-    assert(input.palettes().size() == 1);
+    CHECK(input.open(path));
+    CHECK(input.isOpen());
+    CHECK(input.info().signature == "ElecbyteSpr");
+    CHECK(input.info().version == 0x02000100u);
+    CHECK(input.info().compatible_version == 0x02000000u);
+    CHECK(input.sprites().size() == 2);
+    CHECK(input.palettes().size() == 1);
 
     sff2::Sprite* loaded_first = input.findSprite(0, 0);
     sff2::Sprite* loaded_second = input.findSprite(10, 5);
-    assert(loaded_first && loaded_second);
-    assert(input.decodeSprite(*loaded_first));
-    assert(input.decodeSprite(*loaded_second));
-    assert(loaded_first->pixels == first.pixels);
-    assert(loaded_second->pixels == second.pixels);
-    assert(loaded_first->axis.x == 2 && loaded_first->axis.y == 7);
+    CHECK(loaded_first && loaded_second);
+    CHECK(input.decodeSprite(*loaded_first));
+    CHECK(input.decodeSprite(*loaded_second));
+    CHECK(loaded_first->pixels == first.pixels);
+    CHECK(loaded_second->pixels == second.pixels);
+    CHECK(loaded_first->axis.x == 2 && loaded_first->axis.y == 7);
 
     const sff2::Palette* loaded_palette = input.findPalette(1, 1);
-    assert(loaded_palette && loaded_palette->entries.size() == 4);
-    assert(loaded_palette->entries[1].r == 255);
+    CHECK(loaded_palette && loaded_palette->entries.size() == 4);
+    CHECK(loaded_palette->entries[1].r == 255);
 
     const std::string copy = temporaryPath("sff2-roundtrip-copy-test.sff");
-    assert(input.save(copy));
-    assert(input.isOpen());
+    CHECK(input.save(copy));
+    CHECK(input.isOpen());
     sff2::SFFFile reopened;
-    assert(reopened.open(copy));
+    CHECK(reopened.open(copy));
     sff2::Sprite* copied = reopened.findSprite(10, 5);
-    assert(copied && reopened.decodeSprite(*copied));
-    assert(copied->pixels == second.pixels);
+    CHECK(copied && reopened.decodeSprite(*copied));
+    CHECK(copied->pixels == second.pixels);
 
     std::remove(path.c_str());
     std::remove(copy.c_str());
@@ -116,15 +127,15 @@ void testOriginalCompressionSemantics() {
         // two 7s (stored run 1), one data packet, three 3s (stored run 2).
         sprite.encoded_data =
             std::vector<uint8_t>{5, 0, 0, 0, 1, 0x81, 7, 0x43};
-        assert(file.addSprite(sprite));
-        assert(file.save(rle5_path));
+        CHECK(file.addSprite(sprite));
+        CHECK(file.save(rle5_path));
     }
     {
         sff2::SFFFile file;
-        assert(file.open(rle5_path));
+        CHECK(file.open(rle5_path));
         sff2::Sprite* sprite = file.findSprite(0, 0);
-        assert(sprite && file.decodeSprite(*sprite));
-        assert(sprite->pixels == std::vector<uint8_t>({7, 7, 3, 3, 3}));
+        CHECK(sprite && file.decodeSprite(*sprite));
+        CHECK(sprite->pixels == std::vector<uint8_t>({7, 7, 3, 3, 3}));
     }
     std::remove(rle5_path.c_str());
 
@@ -140,15 +151,15 @@ void testOriginalCompressionSemantics() {
         // a short LZ copy of three bytes from distance three.
         sprite.encoded_data =
             std::vector<uint8_t>{6, 0, 0, 0, 0x02, 0x62, 0x02, 0x02};
-        assert(file.addSprite(sprite));
-        assert(file.save(lz5_path));
+        CHECK(file.addSprite(sprite));
+        CHECK(file.save(lz5_path));
     }
     {
         sff2::SFFFile file;
-        assert(file.open(lz5_path));
+        CHECK(file.open(lz5_path));
         sff2::Sprite* sprite = file.findSprite(0, 0);
-        assert(sprite && file.decodeSprite(*sprite));
-        assert(sprite->pixels ==
+        CHECK(sprite && file.decodeSprite(*sprite));
+        CHECK(sprite->pixels ==
                std::vector<uint8_t>({2, 2, 2, 2, 2, 2}));
     }
     std::remove(lz5_path.c_str());
@@ -165,15 +176,15 @@ void testOriginalCompressionSemantics() {
         // Three 1s followed by a long LZ copy: distance 3, length 4.
         sprite.encoded_data =
             std::vector<uint8_t>{7, 0, 0, 0, 0x02, 0x61, 0, 2, 1};
-        assert(file.addSprite(sprite));
-        assert(file.save(long_lz5_path));
+        CHECK(file.addSprite(sprite));
+        CHECK(file.save(long_lz5_path));
     }
     {
         sff2::SFFFile file;
-        assert(file.open(long_lz5_path));
+        CHECK(file.open(long_lz5_path));
         sff2::Sprite* sprite = file.findSprite(0, 0);
-        assert(sprite && file.decodeSprite(*sprite));
-        assert(sprite->pixels ==
+        CHECK(sprite && file.decodeSprite(*sprite));
+        CHECK(sprite->pixels ==
                std::vector<uint8_t>({1, 1, 1, 1, 1, 1, 1}));
     }
     std::remove(long_lz5_path.c_str());
@@ -187,14 +198,14 @@ void testLinks() {
     palette.group = 1;
     palette.index = 1;
     palette.entries.push_back(sff2::PaletteEntry(0, 0, 0, 0));
-    assert(file.addPalette(palette));
+    CHECK(file.addPalette(palette));
     sff2::Palette linked_palette;
     linked_palette.group = 1;
     linked_palette.index = 2;
     linked_palette.linked = true;
     linked_palette.link_index = 0;
     linked_palette.color_count = 1;
-    assert(file.addPalette(linked_palette));
+    CHECK(file.addPalette(linked_palette));
 
     sff2::Sprite sprite;
     sprite.width = sprite.height = 1;
@@ -202,23 +213,23 @@ void testLinks() {
     sprite.color_depth = 8;
     sprite.pixels.push_back(0);
     sprite.decoded = true;
-    assert(file.addSprite(sprite));
+    CHECK(file.addSprite(sprite));
     sff2::Sprite linked;
     linked.group = 1;
     linked.linked = true;
     linked.link_index = 0;
     linked.width = linked.height = 1;
     linked.color_depth = 8;
-    assert(file.addSprite(linked));
-    assert(file.save(path));
+    CHECK(file.addSprite(linked));
+    CHECK(file.save(path));
 
     sff2::SFFFile input;
-    assert(input.open(path));
+    CHECK(input.open(path));
     sff2::Sprite* loaded = input.findSprite(1, 0);
-    assert(loaded && loaded->linked);
-    assert(input.decodeSprite(*loaded));
-    assert(loaded->pixels.size() == 1 && loaded->pixels[0] == 0);
-    assert(input.findPalette(1, 2)->entries.size() == 1);
+    CHECK(loaded && loaded->linked);
+    CHECK(input.decodeSprite(*loaded));
+    CHECK(loaded->pixels.size() == 1 && loaded->pixels[0] == 0);
+    CHECK(input.findPalette(1, 2)->entries.size() == 1);
     std::remove(path.c_str());
 }
 
@@ -226,33 +237,33 @@ void testRejectsEmptyNonLinkedPayloads() {
     sff2::SFFFile file;
 
     sff2::Palette palette;
-    assert(!file.addPalette(palette));
-    assert(file.lastError().find("entry") != std::string::npos);
+    CHECK(!file.addPalette(palette));
+    CHECK(file.lastError().find("entry") != std::string::npos);
 
     sff2::Sprite encoded_sprite;
-    assert(!file.addSprite(encoded_sprite));
-    assert(file.lastError().find("payload") != std::string::npos);
+    CHECK(!file.addSprite(encoded_sprite));
+    CHECK(file.lastError().find("payload") != std::string::npos);
 
     sff2::Sprite decoded_sprite;
     decoded_sprite.decoded = true;
-    assert(!file.addSprite(decoded_sprite));
-    assert(file.lastError().find("payload") != std::string::npos);
+    CHECK(!file.addSprite(decoded_sprite));
+    CHECK(file.lastError().find("payload") != std::string::npos);
 
     palette.entries.push_back(sff2::PaletteEntry());
-    assert(file.addPalette(palette));
+    CHECK(file.addPalette(palette));
     file.findPalette(0, 0)->entries.clear();
-    assert(!file.save(temporaryPath("sff2-empty-palette-test.sff")));
-    assert(file.lastError().find("payload") != std::string::npos);
+    CHECK(!file.save(temporaryPath("sff2-empty-palette-test.sff")));
+    CHECK(file.lastError().find("payload") != std::string::npos);
     std::remove("sff2-empty-palette-test.sff");
 
     sff2::SFFFile sprite_file;
     decoded_sprite.width = decoded_sprite.height = 1;
     decoded_sprite.color_depth = 8;
     decoded_sprite.pixels.push_back(0);
-    assert(sprite_file.addSprite(decoded_sprite));
+    CHECK(sprite_file.addSprite(decoded_sprite));
     sprite_file.findSprite(0, 0)->pixels.clear();
-    assert(!sprite_file.save(temporaryPath("sff2-empty-sprite-test.sff")));
-    assert(sprite_file.lastError().find("payload") != std::string::npos);
+    CHECK(!sprite_file.save(temporaryPath("sff2-empty-sprite-test.sff")));
+    CHECK(sprite_file.lastError().find("payload") != std::string::npos);
     std::remove("sff2-empty-sprite-test.sff");
 }
 
@@ -263,27 +274,43 @@ void testBadFiles() {
         stream.write("ElecbyteSpr", 11);
     }
     sff2::SFFFile file;
-    assert(!file.open(truncated));
-    assert(!file.lastError().empty());
-    assert(!file.isOpen());
+    CHECK(!file.open(truncated));
+    CHECK(!file.lastError().empty());
+    CHECK(!file.isOpen());
     std::remove(truncated.c_str());
 }
 
 void testStreamContract() {
     sff2::SFFFile file;
     std::unique_ptr<sff2::FileStream> unopened = sff2::createStdFileStream();
-    assert(!file.open(std::move(unopened)));
-    assert(file.lastError().find("not open") != std::string::npos);
+    CHECK(!file.open(std::move(unopened)));
+    CHECK(file.lastError().find("not open") != std::string::npos);
 }
 
 } // namespace
 
 int main() {
-    testCreateAndRoundTrip();
-    testLinks();
-    testRejectsEmptyNonLinkedPayloads();
-    testOriginalCompressionSemantics();
-    testBadFiles();
-    testStreamContract();
-    return 0;
+    struct Test {
+        const char* name;
+        void (*run)();
+    };
+    const Test tests[] = {
+        {"testCreateAndRoundTrip", testCreateAndRoundTrip},
+        {"testLinks", testLinks},
+        {"testRejectsEmptyNonLinkedPayloads", testRejectsEmptyNonLinkedPayloads},
+        {"testOriginalCompressionSemantics", testOriginalCompressionSemantics},
+        {"testBadFiles", testBadFiles},
+        {"testStreamContract", testStreamContract},
+    };
+
+    bool passed = true;
+    for (size_t item = 0; item < sizeof(tests) / sizeof(tests[0]); ++item) {
+        try {
+            tests[item].run();
+        } catch (const CheckFailure&) {
+            std::fprintf(stderr, "%s failed\n", tests[item].name);
+            passed = false;
+        }
+    }
+    return passed ? 0 : 1;
 }
