@@ -59,6 +59,9 @@ void testCreateAndRoundTrip() {
         assert(std::string(reinterpret_cast<char*>(header.data()), 11) ==
                "ElecbyteSpr");
         assert(header[15] == 2);
+        assert(header[16] == 0 && header[20] == 0); // reserved words
+        assert(header[24] == 0 && header[25] == 0 &&
+               header[26] == 0 && header[27] == 2); // compatible 2.0.0.0
         assert(header[36] == 0 && header[37] == 2); // 512, little endian
         assert(header[44] == 56 && header[45] == 2); // 512 + 2 * 28
     }
@@ -68,6 +71,7 @@ void testCreateAndRoundTrip() {
     assert(input.isOpen());
     assert(input.info().signature == "ElecbyteSpr");
     assert(input.info().version == 0x02000100u);
+    assert(input.info().compatible_version == 0x02000000u);
     assert(input.sprites().size() == 2);
     assert(input.palettes().size() == 1);
 
@@ -94,6 +98,82 @@ void testCreateAndRoundTrip() {
 
     std::remove(path.c_str());
     std::remove(copy.c_str());
+}
+
+void testOriginalCompressionSemantics() {
+    const std::string rle5_path = temporaryPath("sff2-rle5-test.sff");
+    {
+        sff2::SFFFile file;
+        sff2::Sprite sprite;
+        sprite.width = 5;
+        sprite.height = 1;
+        sprite.format = sff2::SpriteFormat::Rle5;
+        sprite.color_depth = 5;
+        // Decoded length prefix, then:
+        // two 7s (stored run 1), one data packet, three 3s (stored run 2).
+        sprite.encoded_data =
+            std::vector<uint8_t>{5, 0, 0, 0, 1, 0x81, 7, 0x43};
+        assert(file.addSprite(sprite));
+        assert(file.save(rle5_path));
+    }
+    {
+        sff2::SFFFile file;
+        assert(file.open(rle5_path));
+        sff2::Sprite* sprite = file.findSprite(0, 0);
+        assert(sprite && file.decodeSprite(*sprite));
+        assert(sprite->pixels == std::vector<uint8_t>({7, 7, 3, 3, 3}));
+    }
+    std::remove(rle5_path.c_str());
+
+    const std::string lz5_path = temporaryPath("sff2-lz5-test.sff");
+    {
+        sff2::SFFFile file;
+        sff2::Sprite sprite;
+        sprite.width = 6;
+        sprite.height = 1;
+        sprite.format = sff2::SpriteFormat::Lz5;
+        sprite.color_depth = 5;
+        // Decoded length prefix, then a short RLE run of three 2s followed by
+        // a short LZ copy of three bytes from distance three.
+        sprite.encoded_data =
+            std::vector<uint8_t>{6, 0, 0, 0, 0x02, 0x62, 0x02, 0x02};
+        assert(file.addSprite(sprite));
+        assert(file.save(lz5_path));
+    }
+    {
+        sff2::SFFFile file;
+        assert(file.open(lz5_path));
+        sff2::Sprite* sprite = file.findSprite(0, 0);
+        assert(sprite && file.decodeSprite(*sprite));
+        assert(sprite->pixels ==
+               std::vector<uint8_t>({2, 2, 2, 2, 2, 2}));
+    }
+    std::remove(lz5_path.c_str());
+
+    const std::string long_lz5_path =
+        temporaryPath("sff2-long-lz5-test.sff");
+    {
+        sff2::SFFFile file;
+        sff2::Sprite sprite;
+        sprite.width = 7;
+        sprite.height = 1;
+        sprite.format = sff2::SpriteFormat::Lz5;
+        sprite.color_depth = 5;
+        // Three 1s followed by a long LZ copy: distance 3, length 4.
+        sprite.encoded_data =
+            std::vector<uint8_t>{7, 0, 0, 0, 0x02, 0x61, 0, 2, 1};
+        assert(file.addSprite(sprite));
+        assert(file.save(long_lz5_path));
+    }
+    {
+        sff2::SFFFile file;
+        assert(file.open(long_lz5_path));
+        sff2::Sprite* sprite = file.findSprite(0, 0);
+        assert(sprite && file.decodeSprite(*sprite));
+        assert(sprite->pixels ==
+               std::vector<uint8_t>({1, 1, 1, 1, 1, 1, 1}));
+    }
+    std::remove(long_lz5_path.c_str());
 }
 
 void testLinks() {
@@ -164,6 +244,7 @@ void testStreamContract() {
 int main() {
     testCreateAndRoundTrip();
     testLinks();
+    testOriginalCompressionSemantics();
     testBadFiles();
     testStreamContract();
     return 0;

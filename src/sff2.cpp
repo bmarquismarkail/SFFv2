@@ -117,7 +117,8 @@ bool decodeRle5(const std::vector<uint8_t>& source, size_t expected,
     size_t position = 0;
     while (output.size() < expected) {
         if (position + 2 > source.size()) return false;
-        size_t run_length = source[position++];
+        // RLE5 stores each run length minus one.
+        size_t run_length = static_cast<size_t>(source[position++]) + 1u;
         uint8_t packet = source[position++];
         size_t data_length = packet & 0x7fu;
         uint8_t color = 0;
@@ -130,7 +131,7 @@ bool decodeRle5(const std::vector<uint8_t>& source, size_t expected,
         for (size_t item = 0; item < data_length; ++item) {
             if (position >= source.size() || output.size() >= expected) return false;
             packet = source[position++];
-            run_length = packet >> 5;
+            run_length = static_cast<size_t>(packet >> 5) + 1u;
             color = packet & 0x1fu;
             if (run_length > expected - output.size()) return false;
             output.insert(output.end(), run_length, color);
@@ -318,15 +319,21 @@ bool SFFFile::readHeader() {
     info_.signature.assign(signature, 11);
 
     uint8_t version[4], compatible[4];
-    if (!stream_->read(version, 4) || !stream_->read(compatible, 4))
+    if (!stream_->read(version, 4))
         return fail("Incomplete SFF header");
     info_.version = unpackVersion(version);
-    info_.compatible_version = unpackVersion(compatible);
     if ((info_.version >> 24) != 2)
         return fail("Unsupported SFF version (only SFFv2 is supported)");
 
     uint32_t reserved;
-    for (int item = 0; item < 4; ++item)
+    // Two reserved words precede the compatibility version.
+    for (int item = 0; item < 2; ++item)
+        if (!readU32(*stream_, reserved)) return fail("Incomplete SFF header");
+    if (!stream_->read(compatible, 4))
+        return fail("Incomplete SFF header");
+    info_.compatible_version = unpackVersion(compatible);
+    // Two more reserved words complete the fixed header prefix.
+    for (int item = 0; item < 2; ++item)
         if (!readU32(*stream_, reserved)) return fail("Incomplete SFF header");
     if (!readU32(*stream_, info_.sprite_table_offset) ||
         !readU32(*stream_, reserved) ||
@@ -768,9 +775,13 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
     uint8_t version[4], compatible[4];
     packVersion(info_.version, version);
     packVersion(info_.compatible_version, compatible);
-    if (!output->write(version, 4) || !output->write(compatible, 4))
+    if (!output->write(version, 4))
         return fail("Could not write SFF version");
-    for (int item = 0; item < 4; ++item)
+    for (int item = 0; item < 2; ++item)
+        if (!writeU32(*output, 0)) return fail("Could not write SFF header");
+    if (!output->write(compatible, 4))
+        return fail("Could not write compatible SFF version");
+    for (int item = 0; item < 2; ++item)
         if (!writeU32(*output, 0)) return fail("Could not write SFF header");
     if (!writeU32(*output, info_.sprite_table_offset) ||
         !writeU32(*output, static_cast<uint32_t>(sprites_.size())) ||
