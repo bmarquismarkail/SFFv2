@@ -135,7 +135,7 @@ public:
     Palette* findPalette(uint16_t group, uint16_t index);
     const Palette* findPalette(uint16_t group, uint16_t index) const;
 
-    bool decodeSprite(Sprite& sprite) const;
+    bool decodeSprite(Sprite& sprite);
     bool decodeAll();
     bool addPalette(const Palette& palette);
     bool addSprite(const Sprite& sprite);

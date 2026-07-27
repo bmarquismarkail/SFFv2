@@ -492,13 +492,13 @@ bool SFFFile::open(std::unique_ptr<FileStream> stream) {
     return true;
 }
 
-bool SFFFile::decodeSprite(Sprite& sprite) const {
+bool SFFFile::decodeSprite(Sprite& sprite) {
     last_error_.clear();
     if (sprite.decoded) return true;
     if (sprite.linked) {
         if (sprite.link_index >= sprites_.size())
             return fail("Sprite link index is out of range");
-        Sprite& target = const_cast<Sprite&>(sprites_[sprite.link_index]);
+        Sprite& target = sprites_[sprite.link_index];
         if (&target == &sprite || !decodeSprite(target))
             return fail("Could not decode linked sprite");
         sprite.pixels = target.pixels;
@@ -549,6 +549,8 @@ bool SFFFile::addPalette(const Palette& palette) {
     last_error_.clear();
     Palette value = palette;
     if (!value.linked) {
+        if (value.entries.empty())
+            return fail("Palette needs at least one entry");
         if (value.color_count == 0)
             value.color_count = static_cast<uint16_t>(value.entries.size());
         if (value.color_count != value.entries.size())
@@ -570,6 +572,8 @@ bool SFFFile::addSprite(const Sprite& sprite) {
         if (value.link_index >= sprites_.size())
             return fail("Sprite link index is out of range");
     } else if (value.decoded) {
+        if (value.pixels.empty())
+            return fail("Sprite needs decoded pixels or an encoded payload");
         const size_t expected = expectedPixelBytes(value);
         if (value.pixels.size() != expected)
             return fail("Sprite pixel size does not match dimensions and color depth");
@@ -637,6 +641,8 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
         }
         std::vector<uint8_t> payload;
         if (sprite.decoded) {
+            if (sprite.pixels.empty())
+                return fail("Sprite has no payload to save");
             if (sprite.pixels.size() != expectedPixelBytes(sprite))
                 return fail("Sprite pixel size does not match dimensions");
             SpriteFormat write_format = sprite.format;
@@ -664,6 +670,8 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
                 return fail("Sprite has no payload to save");
             payload = sprite.encoded_data;
         }
+        if (payload.empty())
+            return fail("Sprite has no payload to save");
         data_length = align4(static_cast<uint32_t>(data_length));
         if (data_length + payload.size() > std::numeric_limits<uint32_t>::max())
             return fail("Sprite and palette data exceed the SFFv2 size limit");
@@ -680,6 +688,8 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
         }
         if (palette.color_count == 0)
             palette.color_count = static_cast<uint16_t>(palette.entries.size());
+        if (palette.entries.empty())
+            return fail("Palette has no payload to save");
         if (palette.entries.size() != palette.color_count)
             return fail("Palette color_count does not match entries");
         data_length = align4(static_cast<uint32_t>(data_length));
@@ -726,6 +736,8 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
         const Sprite& sprite = sprites_[item];
         const uint32_t length = sprite.linked ? 0 :
             static_cast<uint32_t>(sprite_payloads[item].bytes.size());
+        if (!sprite.linked && length == 0)
+            return fail("Sprite has no payload to save");
         if (!writeU16(*output, sprite.group) || !writeU16(*output, sprite.index) ||
             !writeU16(*output, sprite.width) || !writeU16(*output, sprite.height) ||
             !writeU16(*output, static_cast<uint16_t>(sprite.axis.x)) ||
@@ -746,6 +758,8 @@ bool SFFFile::save(std::unique_ptr<FileStream> output) {
         const Palette& palette = palettes_[item];
         const uint32_t length = palette.linked ? 0 :
             static_cast<uint32_t>(palette_payloads[item].bytes.size());
+        if (!palette.linked && length == 0)
+            return fail("Palette has no payload to save");
         if (!writeU16(*output, palette.group) ||
             !writeU16(*output, palette.index) ||
             !writeU16(*output, palette.color_count) ||

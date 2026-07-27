@@ -219,6 +219,40 @@ void testLinks() {
     std::remove(path.c_str());
 }
 
+void testRejectsEmptyNonLinkedPayloads() {
+    sff2::SFFFile file;
+
+    sff2::Palette palette;
+    assert(!file.addPalette(palette));
+    assert(file.lastError().find("entry") != std::string::npos);
+
+    sff2::Sprite encoded_sprite;
+    assert(!file.addSprite(encoded_sprite));
+    assert(file.lastError().find("payload") != std::string::npos);
+
+    sff2::Sprite decoded_sprite;
+    decoded_sprite.decoded = true;
+    assert(!file.addSprite(decoded_sprite));
+    assert(file.lastError().find("payload") != std::string::npos);
+
+    palette.entries.push_back(sff2::PaletteEntry());
+    assert(file.addPalette(palette));
+    file.findPalette(0, 0)->entries.clear();
+    assert(!file.save(temporaryPath("sff2-empty-palette-test.sff")));
+    assert(file.lastError().find("payload") != std::string::npos);
+    std::remove("sff2-empty-palette-test.sff");
+
+    sff2::SFFFile sprite_file;
+    decoded_sprite.width = decoded_sprite.height = 1;
+    decoded_sprite.color_depth = 8;
+    decoded_sprite.pixels.push_back(0);
+    assert(sprite_file.addSprite(decoded_sprite));
+    sprite_file.findSprite(0, 0)->pixels.clear();
+    assert(!sprite_file.save(temporaryPath("sff2-empty-sprite-test.sff")));
+    assert(sprite_file.lastError().find("payload") != std::string::npos);
+    std::remove("sff2-empty-sprite-test.sff");
+}
+
 void testBadFiles() {
     const std::string truncated = temporaryPath("sff2-truncated-test.sff");
     {
@@ -244,6 +278,7 @@ void testStreamContract() {
 int main() {
     testCreateAndRoundTrip();
     testLinks();
+    testRejectsEmptyNonLinkedPayloads();
     testOriginalCompressionSemantics();
     testBadFiles();
     testStreamContract();
