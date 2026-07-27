@@ -1,0 +1,558 @@
+#include <sff2/sff2.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <cstdio>
+#endif
+#include <cstring>
+#include <stdexcept>
+
+namespace sff2 {
+
+#ifdef _WIN32
+class StdFileStream final : public FileStream {
+public:
+    bool open(const std::string& path, bool write) override {
+        close();
+        DWORD access = write ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ;
+        DWORD disp = write ? OPEN_ALWAYS : OPEN_EXISTING;
+        stream_ = CreateFileA(path.c_str(), access, FILE_SHARE_READ, nullptr,
+                              disp, FILE_ATTRIBUTE_NORMAL, nullptr);
+        return stream_ != INVALID_HANDLE_VALUE;
+    }
+    bool close() override {
+        if (stream_ == INVALID_HANDLE_VALUE) return true;
+        BOOL r = CloseHandle(stream_);
+        stream_ = INVALID_HANDLE_VALUE;
+        return r != FALSE;
+    }
+    bool seek(uint32_t pos) override {
+        if (stream_ == INVALID_HANDLE_VALUE) return false;
+        LARGE_INTEGER li; li.QuadPart = pos;
+        return SetFilePointerEx(stream_, li, nullptr, FILE_BEGIN) != FALSE;
+    }
+    uint32_t tell() const override {
+        if (stream_ == INVALID_HANDLE_VALUE) return 0;
+        LARGE_INTEGER li{}; li.QuadPart = 0;
+        if (!SetFilePointerEx(stream_, li, nullptr, FILE_CURRENT)) return 0;
+        return static_cast<uint32_t>(li.QuadPart);
+    }
+    bool read(void* dst, size_t size) override {
+        if (stream_ == INVALID_HANDLE_VALUE) return false;
+        DWORD got = 0;
+        return ReadFile(stream_, dst, static_cast<DWORD>(size), &got, nullptr) && got == size;
+    }
+    bool write(const void* src, size_t size) override {
+        if (stream_ == INVALID_HANDLE_VALUE) return false;
+        DWORD written = 0;
+        return WriteFile(stream_, src, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    }
+    uint64_t size() const override {
+        if (stream_ == INVALID_HANDLE_VALUE) return 0;
+        LARGE_INTEGER sz;
+        return GetFileSizeEx(stream_, &sz) ? static_cast<uint64_t>(sz.QuadPart) : 0;
+    }
+    bool isOpen() const override { return stream_ != INVALID_HANDLE_VALUE; }
+    ~StdFileStream() { close(); }
+
+private:
+    HANDLE stream_ = INVALID_HANDLE_VALUE;
+};
+#else
+class StdFileStream final : public FileStream {
+public:
+    bool open(const std::string& path, bool write) override {
+        close();
+        fp_ = fopen(path.c_str(), write ? "r+b" : "rb");
+        if (!fp_ && write) fp_ = fopen(path.c_str(), "w+b");
+        return fp_ != nullptr;
+    }
+    bool close() override {
+        if (!fp_) return true;
+        int r = fclose(fp_);
+        fp_ = nullptr;
+        return r == 0;
+    }
+    bool seek(uint32_t pos) override {
+        if (!fp_) return false;
+        return fseek(fp_, static_cast<long>(pos), SEEK_SET) == 0;
+    }
+    uint32_t tell() const override {
+        if (!fp_) return 0;
+        long p = ftell(fp_);
+        return p >= 0 ? static_cast<uint32_t>(p) : 0;
+    }
+    bool read(void* dst, size_t size) override {
+        if (!fp_) return false;
+        return fread(dst, 1, size, fp_) == size;
+    }
+    bool write(const void* src, size_t size) override {
+        if (!fp_) return false;
+        return fwrite(src, 1, size, fp_) == size;
+    }
+    uint64_t size() const override {
+        if (!fp_) return 0;
+        long cur = ftell(fp_);
+        fseek(fp_, 0, SEEK_END);
+        long end = ftell(fp_);
+        fseek(fp_, cur, SEEK_SET);
+        return end >= 0 ? static_cast<uint64_t>(end) : 0;
+    }
+    bool isOpen() const override { return fp_ != nullptr; }
+    ~StdFileStream() { close(); }
+
+private:
+    FILE* fp_ = nullptr;
+};
+#endif
+
+std::unique_ptr<FileStream> createStdFileStream() {
+    return std::unique_ptr<FileStream>(new StdFileStream);
+}
+
+namespace {
+bool readLe32(FileStream& s, uint32_t& out) {
+    uint8_t b[4];
+    if (!s.read(b, 4)) return false;
+    out = (static_cast<uint32_t>(b[0])     ) |
+          (static_cast<uint32_t>(b[1]) << 8 ) |
+          (static_cast<uint32_t>(b[2]) << 16) |
+          (static_cast<uint32_t>(b[3]) << 24);
+    return true;
+}
+bool readLe16(FileStream& s, uint16_t& out) {
+    uint8_t b[2];
+    if (!s.read(b, 2)) return false;
+    out = (static_cast<uint16_t>(b[0])    ) |
+          (static_cast<uint16_t>(b[1]) << 8);
+    return true;
+}
+void writeLe32(FileStream& s, uint32_t v) {
+    uint8_t b[4] = {
+        static_cast<uint8_t>( v        & 0xff),
+        static_cast<uint8_t>((v >>  8) & 0xff),
+        static_cast<uint8_t>((v >> 16) & 0xff),
+        static_cast<uint8_t>((v >> 24) & 0xff)};
+    s.write(b, 4);
+}
+void writeLe16(FileStream& s, uint16_t v) {
+    uint8_t b[2] = {
+        static_cast<uint8_t>( v       & 0xff),
+        static_cast<uint8_t>((v >> 8) & 0xff)};
+    s.write(b, 2);
+}
+uint32_t align4(uint32_t v) { return (v + 3u) & ~3u; }
+
+bool rleDecode(const uint8_t* src, size_t src_len,
+               std::vector<uint8_t>& dst, size_t expected_pixels)
+{
+    dst.clear();
+    dst.reserve(expected_pixels);
+    size_t i = 0;
+    while (i < src_len && dst.size() < expected_pixels) {
+        uint8_t token = src[i++];
+        bool copy = (token & 0x80) != 0;
+        if (copy) {
+            size_t n = (token & 0x7F) + 1;
+            for (size_t k = 0; k < n && i < src_len && dst.size() < expected_pixels; ++k, ++i)
+                dst.push_back(src[i]);
+        } else {
+            size_t n = token + 3;
+            if (i >= src_len) break;
+            uint8_t v = src[i++];
+            for (size_t k = 0; k < n && dst.size() < expected_pixels; ++k)
+                dst.push_back(v);
+        }
+    }
+    return dst.size() == expected_pixels;
+}
+
+std::vector<uint8_t> rleEncode(const uint8_t* data, size_t len) {
+    std::vector<uint8_t> out;
+    size_t i = 0;
+    while (i < len) {
+        size_t run = 1;
+        while (i + run < len && data[i] == data[i + run] && run < 128) ++run;
+        if (run >= 3) {
+            out.push_back(static_cast<uint8_t>(run - 3));
+            out.push_back(data[i]);
+            i += run;
+        } else {
+            size_t lit = 0;
+            while (lit < 128 && i + lit < len) {
+                size_t r = 1;
+                while (i + lit + r < len && data[i + lit] == data[i + lit + r] && r < 128) ++r;
+                if (r >= 3) break;
+                ++lit;
+            }
+            if (lit == 0) { ++i; continue; }
+            out.push_back(static_cast<uint8_t>(lit - 1));
+            out.insert(out.end(), data + i, data + i + lit);
+            i += lit;
+        }
+    }
+    return out;
+}
+} // anon
+
+// ============================================================
+
+SFFFile::SFFFile() = default;
+SFFFile::~SFFFile() { close(); }
+
+SFFFile::SFFFile(SFFFile&& o) noexcept { *this = std::move(o); }
+SFFFile& SFFFile::operator=(SFFFile&& o) noexcept {
+    if (this != &o) {
+        close();
+        info_ = o.info_;
+        palettes_ = std::move(o.palettes_);
+        sprites_ = std::move(o.sprites_);
+        stream_ = std::move(o.stream_);
+        last_error_ = std::move(o.last_error_);
+        o.info_ = Info{};
+    }
+    return *this;
+}
+
+void SFFFile::close() {
+    if (stream_) stream_->close();
+    stream_.reset();
+    info_ = Info{};
+    palettes_.clear();
+    sprites_.clear();
+}
+
+bool SFFFile::isOpen() const { return stream_ != nullptr && !sprites_.empty(); }
+
+bool SFFFile::readHeader() {
+    if (!stream_) { last_error_ = "No stream"; return false; }
+    char magic[4];
+    if (!stream_->read(magic, 4)) { last_error_ = "Truncated header"; return false; }
+    if (std::strncmp(magic, "SSpr", 4) != 0) { last_error_ = "Bad magic (expected SSpr)"; return false; }
+    info_.magic.assign(magic, 4);
+    if (!readLe32(*stream_, info_.version)) { last_error_ = "Truncated header"; return false; }
+    if (info_.version != 0x00020000) { last_error_ = "Unsupported SFF version (expected 0x00020000)"; return false; }
+    if (!readLe32(*stream_, info_.compatible_version)) { last_error_ = "Truncated header"; return false; }
+    if (!readLe32(*stream_, info_.sprite_package_offset)) { last_error_ = "Truncated header"; return false; }
+    if (!readLe32(*stream_, info_.sprite_package_length)) { last_error_ = "Truncated header"; return false; }
+    if (!readLe32(*stream_, info_.palette_package_offset)) { last_error_ = "Truncated header"; return false; }
+    if (!readLe32(*stream_, info_.palette_package_length)) { last_error_ = "Truncated header"; return false; }
+    uint8_t reserved[4];
+    stream_->read(reserved, 4);
+    return true;
+}
+
+bool SFFFile::writeHeader(FileStream& out) const {
+    if (!out.seek(0)) return false;
+    out.write("SSpr", 4);
+    writeLe32(out, 0x00020000);
+    writeLe32(out, 0x00020000);
+    writeLe32(out, info_.sprite_package_offset);
+    writeLe32(out, info_.sprite_package_length);
+    writeLe32(out, info_.palette_package_offset);
+    writeLe32(out, info_.palette_package_length);
+    uint8_t reserved[4] = {0, 0, 0, 0};
+    out.write(reserved, 4);
+    return true;
+}
+
+bool SFFFile::readPalettePackage() {
+    if (!stream_) return false;
+    if (!stream_->seek(info_.palette_package_offset)) {
+        last_error_ = "Seek failed to palette package"; return false;
+    }
+    uint32_t count = 0;
+    if (!readLe32(*stream_, count)) { last_error_ = "Truncated palette package"; return false; }
+    palettes_.reserve(count > 5000 ? 5000 : count);
+    for (uint32_t i = 0; i < count; ++i) {
+        Palette pal;
+        uint32_t linked = 0;
+        uint16_t tmp16 = 0;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated palette entry"; return false; }
+        pal.group = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated palette entry"; return false; }
+        pal.index = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated palette entry"; return false; }
+        pal.start = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated palette entry"; return false; }
+        pal.count = tmp16;
+        if (!readLe32(*stream_, linked)) { last_error_ = "Truncated palette entry"; return false; }
+        pal.linked = linked != 0;
+        if (!pal.linked) {
+            uint32_t data_size = static_cast<uint32_t>(pal.count) * 4u;
+            std::vector<uint8_t> raw(data_size);
+            if (!stream_->read(raw.data(), data_size)) { last_error_ = "Truncated palette data"; return false; }
+            pal.entries.resize(pal.count);
+            for (uint32_t c = 0; c < pal.count; ++c) {
+                pal.entries[c].r = raw[c*4 + 0];
+                pal.entries[c].g = raw[c*4 + 1];
+                pal.entries[c].b = raw[c*4 + 2];
+                pal.entries[c].a = raw[c*4 + 3];
+            }
+        } else {
+            pal.entries.resize(pal.count ? pal.count : 1);
+        }
+        palettes_.push_back(pal);
+    }
+    info_.palette_count = palettes_.size();
+    return true;
+}
+
+bool SFFFile::readSpritePackage() {
+    if (!stream_) return false;
+    if (!stream_->seek(info_.sprite_package_offset)) {
+        last_error_ = "Seek failed to sprite package"; return false;
+    }
+    uint32_t count = 0;
+    if (!readLe32(*stream_, count)) { last_error_ = "Truncated sprite package"; return false; }
+    if (count > 500000) { last_error_ = "Suspicious sprite count"; return false; }
+    sprites_.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        Sprite spr;
+        uint32_t link_offset = 0;
+        uint16_t tmp16 = 0;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.group = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.index = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.axis.x = static_cast<int16_t>(tmp16);
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.axis.y = static_cast<int16_t>(tmp16);
+        if (!readLe32(*stream_, link_offset)) { last_error_ = "Truncated sprite entry"; return false; }
+        if (!readLe32(*stream_, spr.offset)) { last_error_ = "Truncated sprite entry"; return false; }
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.format = static_cast<SpriteFormat>(tmp16);
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.width = tmp16;
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.height = tmp16;
+        if (!readLe32(*stream_, spr.length)) { last_error_ = "Truncated sprite entry"; return false; }
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.palette_group = static_cast<int16_t>(tmp16);
+        if (!readLe16(*stream_, tmp16)) { last_error_ = "Truncated sprite entry"; return false; }
+        spr.palette_index = static_cast<int16_t>(tmp16);
+        spr.linked = link_offset != 0;
+        sprites_.push_back(spr);
+    }
+    info_.sprite_count = sprites_.size();
+    return true;
+}
+
+bool SFFFile::open(const std::string& path) {
+    close();
+    stream_ = createStdFileStream();
+    if (!stream_->open(path, false)) { last_error_ = "Failed to open file"; return false; }
+    if (!readHeader() || !readPalettePackage() || !readSpritePackage()) {
+        close();
+        return false;
+    }
+    return true;
+}
+
+bool SFFFile::open(std::unique_ptr<FileStream> s) {
+    close();
+    stream_ = std::move(s);
+    if (!stream_) { last_error_ = "Null stream"; return false; }
+    if (!readHeader() || !readPalettePackage() || !readSpritePackage()) {
+        close();
+        return false;
+    }
+    return true;
+}
+
+bool SFFFile::decodeSprite(Sprite& sprite) const {
+    if (!stream_) return false;
+    if (sprite.decoded) return true;
+
+    if (sprite.linked) {
+        const Sprite* target = nullptr;
+        for (const auto& s : sprites_) {
+            if (s.group == sprite.group && s.index == sprite.index && !s.linked) {
+                target = &s;
+                break;
+            }
+        }
+        if (!target) { last_error_ = "Unresolved linked sprite"; return false; }
+        sprite = *target;
+        sprite.decoded = true;
+        return true;
+    }
+
+    if (!stream_->seek(sprite.offset)) {
+        last_error_ = "Seek failed for sprite data";
+        return false;
+    }
+    std::vector<uint8_t> cdata;
+    cdata.resize(sprite.length);
+    if (!stream_->read(cdata.data(), cdata.size())) {
+        last_error_ = "Sprite data read failed";
+        return false;
+    }
+
+    switch (sprite.format) {
+        case SpriteFormat::Raw8Bit:
+        case SpriteFormat::Raw5Bit: {
+            sprite.pixels = std::move(cdata);
+            sprite.decoded = true;
+            return true;
+        }
+        case SpriteFormat::Rle8Bit: {
+            size_t expect = static_cast<size_t>(sprite.width) * static_cast<size_t>(sprite.height);
+            return rleDecode(cdata.data(), cdata.size(), sprite.pixels, expect);
+        }
+        default: {
+            last_error_ = "Unsupported sprite format for decode";
+            return false;
+        }
+    }
+}
+
+bool SFFFile::addPalette(const Palette& pal) {
+    for (auto& p : palettes_) {
+        if (p.group == pal.group && p.index == pal.index) {
+            p = pal;
+            return true;
+        }
+    }
+    palettes_.push_back(pal);
+    return true;
+}
+
+bool SFFFile::addSprite(const Sprite& spr) {
+    for (auto& s : sprites_) {
+        if (s.group == spr.group && s.index == spr.index) {
+            s = spr;
+            return true;
+        }
+    }
+    sprites_.push_back(spr);
+    return true;
+}
+
+Sprite* SFFFile::findSprite(uint16_t group, uint16_t index) {
+    for (auto& s : sprites_) {
+        if (s.group == group && s.index == index) return &s;
+    }
+    return nullptr;
+}
+const Sprite* SFFFile::findSprite(uint16_t group, uint16_t index) const {
+    for (const auto& s : sprites_) {
+        if (s.group == group && s.index == index) return &s;
+    }
+    return nullptr;
+}
+Palette* SFFFile::findPalette(uint16_t group, uint16_t index) {
+    for (auto& p : palettes_) {
+        if (p.group == group && p.index == index) return &p;
+    }
+    return nullptr;
+}
+const Palette* SFFFile::findPalette(uint16_t group, uint16_t index) const {
+    for (const auto& p : palettes_) {
+        if (p.group == group && p.index == index) return &p;
+    }
+    return nullptr;
+}
+
+bool SFFFile::save(const std::string& path) {
+    auto fs = createStdFileStream();
+    if (!fs->open(path, true)) { last_error_ = "Cannot create output file"; return false; }
+    return save(std::move(fs));
+}
+
+bool SFFFile::writePalettePackage(FileStream& out) const {
+    if (!out.seek(info_.palette_package_offset)) return false;
+    writeLe32(out, static_cast<uint32_t>(palettes_.size()));
+    for (const auto& pal : palettes_) {
+        writeLe16(out, static_cast<uint16_t>(pal.group));
+        writeLe16(out, static_cast<uint16_t>(pal.index));
+        writeLe16(out, static_cast<uint16_t>(pal.start));
+        writeLe16(out, static_cast<uint16_t>(pal.count));
+        writeLe32(out, pal.linked ? 1 : 0);
+        for (uint16_t i = 0; i < pal.count; ++i) {
+            const auto& e = pal.entries[i];
+            uint8_t buf[4] = {e.r, e.g, e.b, e.a};
+            out.write(buf, 4);
+        }
+    }
+    uint32_t end = out.tell();
+    if (!out.seek(info_.palette_package_offset + 4)) return false;
+    writeLe32(out, end - info_.palette_package_offset);
+    return true;
+}
+
+bool SFFFile::save(std::unique_ptr<FileStream> out) {
+    if (!out) { last_error_ = "Null output stream"; return false; }
+
+    info_.sprite_package_offset = 32;
+    info_.sprite_package_length = 0;
+    info_.palette_package_offset = 0;
+    info_.palette_package_length = 0;
+
+    if (!writeHeader(*out)) { last_error_ = "Header write failed"; return false; }
+
+    if (!out->seek(info_.sprite_package_offset)) { return false; }
+    writeLe32(*out, static_cast<uint32_t>(sprites_.size()));
+    uint32_t count = static_cast<uint32_t>(sprites_.size());
+    uint32_t data_base = info_.sprite_package_offset + 4 + count * 32;
+    if (!out->seek(data_base)) return false;
+
+    struct Slot { uint32_t entry_off; uint32_t data_off; std::vector<uint8_t> data; };
+    std::vector<Slot> slots;
+    slots.reserve(sprites_.size());
+
+    // Pass 1: reserve entry space
+    if (!out->seek(info_.sprite_package_offset + 4)) return false;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        Slot sl;
+        sl.entry_off = out->tell();
+        if (!out->seek(out->tell() + 32)) return false;
+        sl.data_off = 0;
+        slots.push_back(std::move(sl));
+    }
+
+    // Pass 2: write data blocks
+    for (const auto& spr : sprites_) {
+        Slot& sl = slots.back();
+        sl.data_off = out->tell();
+        if (!spr.decoded) { last_error_ = "Sprite data missing when saving"; return false; }
+        std::vector<uint8_t> encoded;
+        if (isRle(spr.format)) {
+            encoded = rleEncode(spr.pixels.data(), spr.pixels.size());
+        } else {
+            encoded = spr.pixels;
+        }
+        while (encoded.size() && encoded.size() % 4 != 0) encoded.push_back(0);
+        if (!out->write(encoded.data(), encoded.size())) { last_error_ = "Sprite data write failed"; return false; }
+    }
+    info_.sprite_package_length = out->tell() - info_.sprite_package_offset;
+    info_.palette_package_offset = align4(static_cast<uint32_t>(out->tell()));
+
+    if (!writePalettePackage(*out)) { last_error_ = "Palette write failed"; return false; }
+    info_.palette_package_length = static_cast<uint32_t>(out->tell()) - info_.palette_package_offset;
+
+    // Backfill sprite entries
+    auto it = sprites_.begin();
+    for (size_t i = 0; i < slots.size(); ++i, ++it) {
+        if (!out->seek(slots[i].entry_off)) return false;
+        const auto& spr = *it;
+        writeLe16(*out, static_cast<uint16_t>(spr.group));
+        writeLe16(*out, static_cast<uint16_t>(spr.index));
+        writeLe16(*out, static_cast<uint16_t>(spr.axis.x));
+        writeLe16(*out, static_cast<uint16_t>(spr.axis.y));
+        writeLe32(*out, spr.linked ? slots[i].entry_off : 0);
+        writeLe32(*out, slots[i].data_off);
+        writeLe16(*out, static_cast<uint16_t>(spr.format));
+        writeLe16(*out, static_cast<uint16_t>(spr.width));
+        writeLe16(*out, static_cast<uint16_t>(spr.height));
+        writeLe32(*out, static_cast<uint32_t>(spr.pixels.size()));
+        writeLe16(*out, static_cast<uint16_t>(spr.palette_group));
+        writeLe16(*out, static_cast<uint16_t>(spr.palette_index));
+    }
+    return writeHeader(*out);
+}
+
+} // namespace sff2

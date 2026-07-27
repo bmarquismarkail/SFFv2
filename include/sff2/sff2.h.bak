@@ -1,0 +1,148 @@
+#pragma once
+
+#include <cstdint>
+#include <cstddef>
+#include <vector>
+#include <string>
+#include <memory>
+
+namespace sff2 {
+
+struct PaletteEntry {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+};
+
+enum class SpriteFormat : uint16_t {
+    Unknown = 0,
+    Raw5Bit = 0x0001,
+    Rle5Bit = 0x0002,
+    Raw8Bit = 0x0004,
+    Rle8Bit = 0x0008,
+    Raw16Bit = 0x0010,
+    Rle16Bit = 0x0020,
+    Raw24Bit = 0x0040,
+    Rle24Bit = 0x0080,
+    Raw32Bit = 0x0100,
+    Rle32Bit = 0x0200
+};
+
+inline bool isIndexed(SpriteFormat f) {
+    return f == SpriteFormat::Raw5Bit || f == SpriteFormat::Rle5Bit ||
+           f == SpriteFormat::Raw8Bit || f == SpriteFormat::Rle8Bit;
+}
+inline bool isRle(SpriteFormat f) {
+    return f == SpriteFormat::Rle5Bit || f == SpriteFormat::Rle8Bit ||
+           f == SpriteFormat::Rle16Bit || f == SpriteFormat::Rle24Bit ||
+           f == SpriteFormat::Rle32Bit;
+}
+
+struct Axis {
+    int16_t x;
+    int16_t y;
+};
+
+struct Sprite {
+    uint16_t      group = 0;
+    uint16_t      index = 0;
+    Axis          axis  = {0,0};
+    SpriteFormat  format = SpriteFormat::Unknown;
+    uint16_t      width = 0;
+    uint16_t      height = 0;
+    uint32_t      length = 0;
+    uint32_t      offset = 0;
+    std::vector<uint8_t> pixels;
+    int16_t       palette_group = -1;
+    int16_t       palette_index = -1;
+    bool linked = false;
+    uint16_t      link_group = 0;
+    uint16_t      link_index = 0;
+    bool decoded = false;
+};
+
+struct Palette {
+    uint16_t group = 0;
+    uint16_t index = 0;
+    uint16_t start = 0;
+    uint16_t count = 0;
+    bool linked = false;
+    std::vector<PaletteEntry> entries;
+};
+
+class FileStream;
+class SFFFile {
+public:
+    SFFFile();
+    ~SFFFile();
+
+    SFFFile(const SFFFile&) = delete;
+    SFFFile& operator=(const SFFFile&) = delete;
+    SFFFile(SFFFile&&) noexcept;
+    SFFFile& operator=(SFFFile&&) noexcept;
+
+    struct Info {
+        std::string magic;
+        uint32_t    version = 0;
+        uint32_t    compatible_version = 0;
+        uint32_t    sprite_package_offset = 0;
+        uint32_t    sprite_package_length = 0;
+        uint32_t    palette_package_offset = 0;
+        uint32_t    palette_package_length = 0;
+        size_t      sprite_count = 0;
+        size_t      palette_count = 0;
+    };
+
+    bool open(const std::string& path);
+    bool open(std::unique_ptr<FileStream> stream);
+    void close();
+    bool isOpen() const;
+
+    const Info& info() const { return info_; }
+    const std::vector<Palette>& palettes() const { return palettes_; }
+    const std::vector<Sprite>&  sprites() const  { return sprites_; }
+
+    Sprite* findSprite(uint16_t group, uint16_t index);
+    const Sprite* findSprite(uint16_t group, uint16_t index) const;
+    Palette* findPalette(uint16_t group, uint16_t index);
+    const Palette* findPalette(uint16_t group, uint16_t index) const;
+
+    bool decodeSprite(Sprite& sprite) const;
+    bool addPalette(const Palette& pal);
+    bool addSprite(const Sprite& spr);
+    bool save(const std::string& path);
+    bool save(std::unique_ptr<FileStream> out);
+    std::string lastError() const { return last_error_; }
+
+private:
+    bool readHeader();
+    bool readPalettePackage();
+    bool readSpritePackage();
+    bool writeHeader(FileStream& out) const;
+    bool writePalettePackage(FileStream& out) const;
+    static uint32_t align4(uint32_t v) { return (v + 3u) & ~3u; }
+
+    Info info_;
+    std::vector<Palette> palettes_;
+    std::vector<Sprite>  sprites_;
+    std::unique_ptr<FileStream> stream_;
+    mutable std::string last_error_;
+};
+
+class FileStream {
+public:
+    virtual ~FileStream() = default;
+    virtual bool open(const std::string& path, bool write) = 0;
+    virtual bool close() = 0;
+    virtual bool seek(uint32_t pos) = 0;
+    virtual uint32_t tell() const = 0;
+    virtual bool read(void* dst, size_t size) = 0;
+    virtual bool write(const void* src, size_t size) = 0;
+    virtual uint64_t size() const = 0;
+    virtual bool isOpen() const = 0;
+};
+
+std::unique_ptr<FileStream> createStdFileStream();
+
+} // namespace sff2
